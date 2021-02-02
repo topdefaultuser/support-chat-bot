@@ -19,7 +19,7 @@ import contents
 
 API_TOKEN = os.environ['TOKEN']
 
-WEBHOOK_DOMAIN = 'https://9cdc63c3a794.ngrok.io'
+WEBHOOK_DOMAIN = 'https://0866f6ebac8e.ngrok.io'
 WEBHOOK_HOST = '%s/%s/' % (WEBHOOK_DOMAIN, API_TOKEN)
 
 WEBHOOK_LISTEN = 'localhost'
@@ -496,6 +496,7 @@ class Handler:
 					answer = contents.Document(nickname, message.chat.id, 
 						message.message_id, message.document.file_id, message.caption).get()
 				# Обновление сообщения 
+				print('update_message')
 				Handler._chat.update_message(message_wrapper)
 				# Сохранение ответа в базе данных 
 				Handler._chat.append_message(answer)

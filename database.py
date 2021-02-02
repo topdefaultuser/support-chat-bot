@@ -41,7 +41,8 @@ class SQLiteDatabase:
 				"username"	TEXT,
 				"message"	TEXT,
 				"type"	TEXT,
-				"content"	TEXT,
+				"body"	TEXT,
+				"file_id"	TEXT,
 				"responses"	INTEGER,
 				"recipients_chat_and_message_id"	TEXT
 			);
@@ -116,10 +117,10 @@ class SQLiteDatabase:
 
 	# 
 	def append_message(self, data: dict):
-		connection, cursor = self.__connect() 
-		query = '''INSERT INTO messages VALUES ("%s", "%i", "%i", "%s", "%s", "%s", "%s", "%i", "%s")''' % (
+		connection, cursor = self.__connect()
+		query = '''INSERT INTO messages VALUES ("%s", "%i", "%i", "%s", "%s", "%s", "%s", "%s", "%i", "%s")''' % (
 			data['id'], data['chat_id'], data['message_id'], data['username'], data['message'], data['type'], 
-			data['content'], data['responses'], data['recipients_chat_and_message_id'])
+			data['body'], data['file_id'], data['responses'], data['recipients_chat_and_message_id'])
 
 		cursor.execute(query)
 		connection.commit()
@@ -128,8 +129,8 @@ class SQLiteDatabase:
 	# У сообщения изменяются только количество ответов, а так же chat, message id, тех кто их получил
 	def update_message(self, data: dict):
 		connection, cursor = self.__connect()
-		query = '''UPDATE messages SET content="%s", responses="%i", recipients_chat_and_message_id="%s" WHERE id="%s"''' % (
-			data['content'], data['responses'], data['recipients_chat_and_message_id'], data['id'])
+		query = '''UPDATE messages SET body="%s", responses="%i", recipients_chat_and_message_id="%s" WHERE id="%s"''' % (
+			data['body'], data['responses'], data['recipients_chat_and_message_id'], data['id'])
 
 		cursor.execute(query)
 		connection.commit()
@@ -351,9 +352,10 @@ class MessageLoader:
 		self._username = data[3]
 		self._message = data[4] # Для текстового сообщения это текст, для фото и документа их подпись
 		self._type = data[5] # Типом сообщений могут быть: message, photo, document
-		self._content = data[6] # Контентом является айди фотографии или файла
-		self._responses = data[7]
-		self._recipients_chat_id = self._select_chat_and_message_id(data[8])
+		self._body = data[6]
+		self._file_id = data[7] # Контентом является айди фотографии или файла
+		self._responses = data[8]
+		self._recipients_chat_id = self._select_chat_and_message_id(data[9])
 
 	# 
 	def _select_chat_and_message_id(self, data):
@@ -371,18 +373,19 @@ class MessageLoader:
 			message = contents.Text(self._username, self._chat_id, 
 				self._message_id, self._message)
 			# 
-			message.update(self._content)
+			message.update(self._body)
 
 		if(self._type == 'photo'):
 			message = contents.Photo(self._username, self._chat_id, 
-				self._message_id, self._content, self._message)
+				self._message_id, self._file_id, self._message)
 
 		if(self._type == 'document'):
 			message = contents.Document(self._username, self._chat_id, 
-				self._message_id, self._content, self._message)
+				self._message_id, self._file_id, self._message)
 
 		# FEXME Замена сгенерированого id сообщения на старый id сообщения  
 		message.set_id(self._id)
+		message.update(self._body)
 
 		if(self._recipients_chat_id):
 			for chat_and_message_id in self._recipients_chat_id:
@@ -420,18 +423,19 @@ class MessageSaver:
 		if(self._message.message):
 			self._data['message'] = self._message.message
 			self._data['type'] = 'message'
-			self._data['content'] = self._message.body
+			self._data['file_id'] = None
 		
 		elif(self._message.photo_id):
 			self._data['message'] = self._message.caption
 			self._data['type'] = 'photo'
-			self._data['content'] = self._message.photo_id
+			self._data['file_id'] = self._message.photo_id
 
 		elif(self._message.document_id):
 			self._data['message'] = self._message.caption
 			self._data['type'] = 'document'
-			self._data['content'] = self._message.document_id
+			self._data['file_id'] = self._message.document_id
 
+		self._data['body'] = self._message.body
 		self._data['responses'] = self._message.amount_responses
 
 		if(self._message.has_response()):
